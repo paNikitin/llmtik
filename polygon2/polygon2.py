@@ -173,8 +173,14 @@ def _patched_ask(module, mode: str, task_ids: list[str]):
             module.ask = original
 
 
-def self_check(act, tasks: list[str] | None = None, model: str = "live", verbose: bool = False) -> dict:
-    """Прогнать агента по учебным задачам. С model="recorded" работает без сети, на записанных ответах."""
+def self_check(act, tasks: list[str] | None = None, model: str = "live", verbose: bool = False,
+               *, trace: bool = False) -> dict:
+    """Прогнать агента; model="recorded" работает на записанных ответах, без сети.
+
+    trace=True добавляет tasks[].trace и termination, без содержимого файлов,
+    запросов к модели и вывода команд. При исключении прогон, как прежде,
+    прерывается без полного отчёта. По умолчанию формат отчёта не меняется.
+    """
     _load_env()
     selected = [t for t in load_set(str(TRAIN)) if tasks is None or t.id in tasks]
     module = sys.modules.get(getattr(act, "__module__", ""), None)
@@ -188,7 +194,7 @@ def self_check(act, tasks: list[str] | None = None, model: str = "live", verbose
         for task in selected:
             _Budget.left = CALLS_PER_TASK
             recording["task"], recording["index"] = task.id, 0
-            part = run_tasks(act, [task], _harness(), extra=budget, verbose=verbose)
+            part = run_tasks(act, [task], _harness(), extra=budget, verbose=verbose, trace=trace)
             results += part["tasks"]
     report["tasks"] = results
     report["total"] = round(100 * sum(r["score"] for r in results) / len(results), 2) if results else 0.0

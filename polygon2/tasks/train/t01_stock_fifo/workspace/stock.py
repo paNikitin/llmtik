@@ -28,7 +28,7 @@ def consume(lots, qty):
         raise ValueError("нельзя продать отрицательное количество")
     result = [dict(lot) for lot in lots]
     sold = 0
-    for lot in sorted(result, key=lambda item: item["day"], reverse=True):
+    for lot in sorted(result, key=lambda item: item["day"]):
         if sold == qty:
             break
         take = min(lot["qty"], qty - sold)

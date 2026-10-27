@@ -16,7 +16,7 @@ import tempfile
 import time
 
 from .checks import evaluate
-from .workspace import Task, Workspace
+from .workspace import COMMANDS, Task, Workspace, clean_path
 
 HARNESS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "harness.py")
 MAX_MEMORY_BYTES = 64 * 1024
@@ -66,32 +66,97 @@ def roundtrip_memory(memory) -> dict:
     return restored
 
 
-def run_task(act, task: Task, harness, memory: dict, extra=None, verbose: bool = False) -> tuple[dict, dict]:
-    """Одна задача: шаги агента до сдачи, затем оценка."""
-    ws = Workspace(task, harness)
+def _command_metadata(action) -> dict:
+    """Только известная команда и безопасный относительный путь, без текста правки."""
+    cmd = action.get("cmd") if type(action) is dict else None
+    if type(cmd) is not str or cmd not in COMMANDS:
+        return {"cmd": "invalid"}
+    command = {"cmd": cmd}
+    if cmd in ("read", "write", "append", "edit"):
+        path = clean_path(action.get("path"))
+        if path is not None and not any(ord(char) < 32 or ord(char) == 127 for char in path):
+            command["path"] = path
+    return command
+
+
+def _run_metadata(report) -> dict:
+    """Без вывода, имён тестов и текста исключений исполнителя."""
+    if type(report) is not dict or not report.get("ok"):
+        return {"status": "harness_error"}
+    tests = report.get("tests")
+    if type(tests) is not dict:
+        return {"status": "harness_error"}
+    if any(type(tests.get(key)) is not int or tests[key] < 0 for key in ("ran", "passed")):
+        return {"status": "harness_error"}
+    if any(type(tests.get(key)) is not list for key in ("failures", "import_errors")):
+        return {"status": "harness_error"}
+    return {"status": "completed", "ran": tests["ran"], "passed": tests["passed"],
+            "failures": len(tests["failures"]), "import_errors": len(tests["import_errors"])}
+
+
+def run_task(act, task: Task, harness, memory: dict, extra=None, verbose: bool = False,
+             *, trace: bool = False) -> tuple[dict, dict]:
+    """Одна задача: шаги агента до сдачи, затем оценка.
+
+    trace добавляет безопасные метаданные применённых команд. Исключения по-прежнему
+    прерывают прогон: полного отчёта при этом нет, как и без trace.
+    """
+    events = []
+    recording_run = False
+    run_result = {"status": "no_tests"}
+
+    def traced_harness(mode, files, args, stdin):
+        nonlocal run_result
+        report = harness(mode, files, args, stdin)
+        if recording_run and mode == "tests":
+            run_result = _run_metadata(report)
+        return report
+
+    ws = Workspace(task, traced_harness if trace else harness)
     started = time.perf_counter()
     while not ws.done:
         observation = ws.observation(extra() if callable(extra) else extra)
         action = act(observation, memory)
         memory = roundtrip_memory(memory)
+        command = _command_metadata(action) if trace else None
         if verbose:
-            shown = {k: (v if k != "content" else f"<{len(v)} символов>") for k, v in
-                     (action.items() if isinstance(action, dict) else [])}
+            shown = command if trace else {
+                k: (v if k != "content" else f"<{len(v)} символов>") for k, v in
+                (action.items() if isinstance(action, dict) else [])}
             print(f"  шаг {task.step_limit - ws.steps_left + 1}: {shown}")
-        ws.apply(action if isinstance(action, dict) else {})
+        recording_run = trace and command["cmd"] == "run"
+        run_result = {"status": "no_tests"}
+        try:
+            ws.apply(action if isinstance(action, dict) else {})
+        finally:
+            recording_run = False
+        if trace:
+            outcome = {"ok": ws.last.get("ok") is True}
+            if command["cmd"] == "run":
+                outcome["run"] = run_result
+            event = {"step": task.step_limit - ws.steps_left, "command": command,
+                     "result": outcome, "steps_left": ws.steps_left}
+            current = extra() if callable(extra) else extra
+            if isinstance(current, dict) and type(current.get("calls_left")) is int:
+                event["calls_left"] = current["calls_left"]
+            events.append(event)
     result = evaluate(ws)
     result["seconds"] = round(time.perf_counter() - started, 1)
+    if trace:
+        result["trace"] = events
+        result["termination"] = "submit" if ws.last.get("cmd") == "submit" else "step_limit"
     return result, memory
 
 
-def run_tasks(act, tasks: list[Task], harness=None, extra=None, verbose: bool = False) -> dict:
+def run_tasks(act, tasks: list[Task], harness=None, extra=None, verbose: bool = False,
+              *, trace: bool = False) -> dict:
     harness = harness or SubprocessHarness()
     memory: dict = {}
     results = []
     for index, task in enumerate(tasks, 1):
         info = (lambda: dict(extra() if callable(extra) else (extra or {}),
                              task_index=index, tasks_total=len(tasks)))
-        result, memory = run_task(act, task, harness, memory, info, verbose)
+        result, memory = run_task(act, task, harness, memory, info, verbose, trace=trace)
         results.append(result)
     total = round(100 * sum(r["score"] for r in results) / len(results), 2) if results else 0.0
     return {"total": total, "tasks": results}
