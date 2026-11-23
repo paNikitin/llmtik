@@ -1,0 +1,619 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Полигон 4 · Операционная диспетчерская</title>
+<style>
+  :root {
+    --bg: #f6f4ee;
+    --surface: #ffffff;
+    --panel: #e8efe5;
+    --ink: #16181d;
+    --muted: #4a4e57;
+    --line: #d9d4c5;
+    --green: #1f8a4c;
+    --green-dark: #166537;
+    --amber: #b54708;
+    --amber-bg: #fef0c7;
+    --red: #b42318;
+    --red-bg: #fee4e2;
+    --blue: #175cd3;
+    --mono: ui-monospace, "JetBrains Mono", Menlo, Consolas, monospace;
+    --sans: "Onest", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font: 14px/1.45 var(--sans);
+  }
+  header.topbar {
+    background: var(--ink);
+    color: #fff;
+    padding: 14px 24px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    border-bottom: 3px solid var(--green);
+  }
+  .brand { display: flex; flex-direction: column; gap: 2px; }
+  .brand-kicker { font-size: 11px; letter-spacing: 0.09em; text-transform: uppercase; color: #9ab8a4; }
+  .brand-title { font-size: 18px; font-weight: 700; }
+  nav.tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+  nav.tabs button {
+    background: rgba(255,255,255,0.08);
+    color: #e5e7eb;
+    border: 1px solid rgba(255,255,255,0.16);
+    padding: 8px 14px;
+    border-radius: 6px;
+    font: 600 13px var(--sans);
+    cursor: pointer;
+  }
+  nav.tabs button.active {
+    background: var(--green);
+    border-color: var(--green);
+    color: #fff;
+  }
+  main { max-width: 1360px; margin: 0 auto; padding: 20px 24px 48px; }
+  .toolbar {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 12px 16px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: end;
+    margin-bottom: 16px;
+  }
+  label.field { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); font-weight: 600; }
+  select, input[type="number"], input[type="text"] {
+    height: 34px;
+    padding: 4px 10px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: #fff;
+    color: var(--ink);
+    font: 13px var(--sans);
+  }
+  button.btn {
+    height: 34px;
+    padding: 0 14px;
+    border-radius: 6px;
+    border: 1px solid var(--line);
+    background: var(--surface);
+    color: var(--ink);
+    font: 600 13px var(--sans);
+    cursor: pointer;
+  }
+  button.btn:hover { background: var(--bg); }
+  button.btn-primary {
+    background: var(--green);
+    border-color: var(--green);
+    color: #fff;
+  }
+  button.btn-primary:hover { background: var(--green-dark); }
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(165px, 1fr));
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+  .kpi {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 10px 14px;
+  }
+  .kpi-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
+  .kpi-value { font: 700 20px/1.2 var(--mono); margin-top: 4px; }
+  .kpi-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .split-grid {
+    display: grid;
+    grid-template-columns: 1.2fr 1fr;
+    gap: 16px;
+    align-items: start;
+  }
+  @media (max-width: 980px) { .split-grid { grid-template-columns: 1fr; } }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 14px;
+  }
+  .card h2, .card h3 { margin: 0 0 10px; font-size: 15px; }
+  .doc-card {
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    padding: 12px;
+    margin-bottom: 10px;
+    background: #fcfbf8;
+  }
+  .doc-card.substantive { border-left: 4px solid var(--green); background: #fff; }
+  .doc-card.trap { border-left: 4px solid var(--red); }
+  .doc-meta { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 99px;
+    font: 600 11px var(--mono);
+    background: var(--panel);
+    color: var(--green-dark);
+  }
+  .badge.warn { background: var(--amber-bg); color: var(--amber); }
+  .badge.danger { background: var(--red-bg); color: var(--red); }
+  .doc-subject { font-weight: 700; margin-bottom: 4px; }
+  .doc-body { color: var(--ink); margin-bottom: 8px; }
+  .dossier {
+    font-size: 12px;
+    background: var(--panel);
+    padding: 6px 10px;
+    border-radius: 6px;
+    margin-bottom: 8px;
+    font-family: var(--mono);
+  }
+  .decision-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .decision-row button {
+    padding: 5px 10px;
+    font-size: 12px;
+    border-radius: 5px;
+    border: 1px solid var(--line);
+    background: #fff;
+    cursor: pointer;
+    font-weight: 600;
+  }
+  .decision-row button.chosen {
+    background: var(--ink);
+    color: #fff;
+    border-color: var(--ink);
+  }
+  table.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  table.data-table th, table.data-table td {
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--line);
+    text-align: left;
+  }
+  table.data-table th {
+    background: var(--bg);
+    color: var(--muted);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .num { font-family: var(--mono); text-align: right !important; white-space: nowrap; }
+  .chart-wrap { width: 100%; overflow-x: auto; }
+  svg.chart { width: 100%; height: 220px; display: block; background: #fcfbf8; border: 1px solid var(--line); border-radius: 6px; }
+  .audit-banner {
+    background: var(--panel);
+    border: 1px solid #b7d4c2;
+    border-radius: 6px;
+    padding: 10px 12px;
+    margin-bottom: 10px;
+    font-size: 13px;
+  }
+  .error-banner {
+    background: var(--red-bg);
+    color: var(--red);
+    border: 1px solid #fecdca;
+    border-radius: 6px;
+    padding: 10px 12px;
+    margin-bottom: 12px;
+  }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-kicker">СПбГУ · LLM-модели · Финальный Полигон 4</span>
+    <span class="brand-title">Операционная диспетчерская и цифровой двойник WhatIf</span>
+  </div>
+  <nav class="tabs" role="tablist" aria-label="Режимы диспетчерской">
+    <button type="button" class="active" data-tab="hitl" id="tab-btn-hitl">1. Пульт оператора (HITL)</button>
+    <button type="button" data-tab="trace" id="tab-btn-trace">2. Инспектор трассы</button>
+    <button type="button" data-tab="ab" id="tab-btn-ab">3. Сравнение A/B</button>
+  </nav>
+</header>
+
+<main>
+  <div id="error-box" class="error-banner" hidden></div>
+
+  <!-- TAB 1: HITL -->
+  <section id="panel-hitl">
+    <div class="toolbar">
+      <label class="field">Учебный сценарий
+        <select id="hitl-scenario"></select>
+      </label>
+      <button type="button" class="btn" id="btn-hitl-reset">Сначала</button>
+      <label class="field">Выпуск, ед.
+        <input type="number" id="inp-produce" value="140" min="0" max="200" style="width:92px">
+      </label>
+      <label class="field">Розн. цена, ₽
+        <input type="number" id="inp-price" value="195" min="40" max="450" style="width:96px">
+      </label>
+      <label class="field">Поставщик
+        <select id="inp-supplier">
+          <option value="S2">S2 · ВолгаОпт (43 ₽, 3 дн.)</option>
+          <option value="S1">S1 · СеверСнаб (58 ₽, 2 дн.)</option>
+          <option value="S3">S3 · ЮгРесурс (48 ₽, 4 дн.)</option>
+        </select>
+      </label>
+      <label class="field">Обычный заказ, ед.
+        <input type="number" id="inp-order-qty" value="100" min="0" max="600" style="width:110px">
+      </label>
+      <button type="button" class="btn btn-primary" id="btn-step-once">Выполнить день</button>
+      <button type="button" class="btn" id="btn-step-dispute">До спорного письма →</button>
+    </div>
+
+    <div class="kpi-grid" id="hitl-kpis"></div>
+
+    <div class="split-grid">
+      <div>
+        <div class="card">
+          <h2>Входящая почта и решения оператора</h2>
+          <div id="hitl-audits"></div>
+          <div id="hitl-inbox"></div>
+        </div>
+        <div class="card">
+          <h3>Активные клиентские контракты и партии в пути</h3>
+          <div id="hitl-obligations"></div>
+        </div>
+      </div>
+
+      <div>
+        <div class="card">
+          <h2>Цифровой двойник WhatIfSandbox · расчёт EVPI</h2>
+          <div id="whatif-box">Загрузка расчёта...</div>
+        </div>
+        <div class="card">
+          <h3>Динамика кассы по дням</h3>
+          <div class="chart-wrap"><svg class="chart" id="hitl-chart" viewBox="0 0 600 220"></svg></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TAB 2: TRACE -->
+  <section id="panel-trace" hidden>
+    <div class="toolbar">
+      <label class="field">Сценарий
+        <select id="trace-scenario"></select>
+      </label>
+      <label class="field">Политика или путь к .py
+        <input type="text" id="trace-agent" list="policy-list" value="reference_agent" style="width:230px">
+      </label>
+      <label class="field">Фильтр событий
+        <select id="trace-filter">
+          <option value="all">Все дни (30)</option>
+          <option value="injection">Инъекции и безопасность</option>
+          <option value="contract">Клиентские контракты</option>
+          <option value="audit">Запросы и ответы ревизора</option>
+          <option value="prefilter">Отсев шума и вызовы модели</option>
+        </select>
+      </label>
+      <button type="button" class="btn btn-primary" id="btn-run-trace">Прогнать сценарий</button>
+    </div>
+    <datalist id="policy-list"></datalist>
+    <div class="kpi-grid" id="trace-kpis"></div>
+    <div class="card">
+      <h2>Воронка решений и журнал 30 дней</h2>
+      <div class="chart-wrap" style="margin-bottom:14px"><svg class="chart" id="trace-chart" viewBox="0 0 900 220"></svg></div>
+      <div id="trace-days"></div>
+    </div>
+  </section>
+
+  <!-- TAB 3: A/B COMPARE -->
+  <section id="panel-ab" hidden>
+    <div class="toolbar">
+      <label class="field">Сценарий
+        <select id="ab-scenario"></select>
+      </label>
+      <label class="field">Агент A
+        <input type="text" id="ab-agent-a" list="policy-list" value="reference_agent" style="width:200px">
+      </label>
+      <label class="field">Агент B
+        <input type="text" id="ab-agent-b" list="policy-list" value="numeric_baseline" style="width:200px">
+      </label>
+      <button type="button" class="btn btn-primary" id="btn-run-ab">Сравнить A и B</button>
+    </div>
+    <div class="kpi-grid" id="ab-kpis"></div>
+    <div class="split-grid">
+      <div class="card">
+        <h2>Кривые кассы: A (зелёная) против B (тёмно-серая)</h2>
+        <div class="chart-wrap"><svg class="chart" id="ab-chart" viewBox="0 0 640 220"></svg></div>
+      </div>
+      <div class="card">
+        <h2>Ключевые дни расхождения кассы</h2>
+        <div id="ab-table"></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+(() => {
+  const state = { session: null, decisions: {}, scenarios: [], policies: [], traceData: null };
+  const el = id => document.getElementById(id);
+  const fmt = n => Number(n || 0).toLocaleString('ru-RU', { maximumFractionDigits: 0 });
+  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+  function showError(msg) {
+    const box = el('error-box');
+    if (!msg) { box.hidden = true; box.textContent = ''; return; }
+    box.textContent = msg;
+    box.hidden = false;
+  }
+
+  async function api(path, body) {
+    showError('');
+    const opts = body !== undefined
+      ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
+      : { method: 'GET' };
+    const res = await fetch(path, opts);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || ('HTTP ' + res.status));
+    return data;
+  }
+
+  function drawLineChart(svgId, seriesList, width = 600, height = 220) {
+    const svg = el(svgId);
+    const ptsAll = seriesList.flatMap(s => s.points);
+    if (!ptsAll.length) { svg.innerHTML = ''; return; }
+    const padL = 62, padR = 18, padT = 18, padB = 28;
+    const minY = Math.min(...ptsAll.map(p => p.y));
+    const maxY = Math.max(...ptsAll.map(p => p.y), minY + 1000);
+    const maxX = Math.max(29, ...ptsAll.map(p => p.x));
+    const xOf = x => padL + (x / maxX) * (width - padL - padR);
+    const yOf = y => height - padB - ((y - minY) / (maxY - minY || 1)) * (height - padT - padB);
+
+    let out = '';
+    for (let i = 0; i <= 3; i++) {
+      const val = minY + (i / 3) * (maxY - minY);
+      const y = yOf(val);
+      out += `<line x1="${padL}" y1="${y}" x2="${width - padR}" y2="${y}" stroke="#e5e2d9" stroke-width="1"/>`;
+      out += `<text x="${padL - 6}" y="${y + 4}" text-anchor="end" font-size="10" fill="#4a4e57" font-family="monospace">${fmt(val)}</text>`;
+    }
+    for (const s of seriesList) {
+      if (!s.points.length) continue;
+      const d = s.points.map((p, idx) => `${idx ? 'L' : 'M'}${xOf(p.x).toFixed(1)},${yOf(p.y).toFixed(1)}`).join(' ');
+      out += `<path d="${d}" fill="none" stroke="${s.color}" stroke-width="2.5" ${s.dash ? 'stroke-dasharray="5,4"' : ''}/>`;
+      for (const p of s.points) {
+        out += `<circle cx="${xOf(p.x).toFixed(1)}" cy="${yOf(p.y).toFixed(1)}" r="2.6" fill="${s.color}"/>`;
+      }
+    }
+    out += `<text x="${width - padR}" y="${height - 8}" text-anchor="end" font-size="10" fill="#4a4e57">День 0 … ${maxX}</text>`;
+    svg.innerHTML = out;
+  }
+
+  function renderHitl() {
+    const s = state.session;
+    if (!s) return;
+    const obs = s.observation;
+    el('hitl-kpis').innerHTML = [
+      ['День горизонта', `${obs.day} / ${obs.days_total}`, s.done ? 'Сценарий завершён' : 'Операционный такт'],
+      ['Касса', `${fmt(obs.cash)} ₽`, `Вчера розница: ${obs.last_day.retail_sales} ед.`],
+      ['Склад (сырьё / готовое)', `${obs.raw} / ${obs.finished}`, `Свободно: ${obs.room} из ${obs.warehouse}`],
+      ['Квота ревизора', `${obs.audits_left} осталось`, 'Точная проверка письма + токен'],
+      ['Активные контракты', `${obs.active_contracts.length}`, `Выполнено: ${s.series[s.series.length - 1].contracts_completed}, срывов: ${s.series[s.series.length - 1].contracts_breached}`],
+    ].map(([k, v, sub]) => `<div class="kpi"><div class="kpi-label">${esc(k)}</div><div class="kpi-value">${esc(v)}</div><div class="kpi-sub">${esc(sub)}</div></div>`).join('');
+
+    el('hitl-audits').innerHTML = (s.audit_results || []).map(a =>
+      `<div class="audit-banner"><strong>Ответ ревизора по ${esc(a.doc_id)}:</strong> <span class="badge">${esc(a.verdict)}</span> ${esc(a.summary)} ${a.approval_token ? `<code>${esc(a.approval_token)}</code>` : ''}</div>`
+    ).join('');
+
+    if (!s.cards.length) {
+      el('hitl-inbox').innerHTML = `<p style="color:var(--muted)">На день ${obs.day} новых писем нет. Задайте выпуск и заказ или нажмите «До спорного письма →».</p>`;
+    } else {
+      el('hitl-inbox').innerHTML = s.cards.map(c => {
+        const chosen = state.decisions[c.doc_id] || '';
+        const cls = c.kind === 'directive_trap' ? 'doc-card substantive trap' : (c.substantive ? 'doc-card substantive' : 'doc-card');
+        const dossier = c.dossier
+          ? `<div class="dossier">Досье ${esc(c.dossier.supplier_id)} (${esc(c.dossier.name)}): поставок ${c.dossier.deliveries}, реальных задержек ${c.dossier.real_delays}, ложных тревог ${c.dossier.false_alarms}</div>`
+          : '';
+        const btns = [];
+        if (c.kind === 'contract_offer') btns.push(['accept', 'Подписать контракт'], ['ignore', 'Отклонить']);
+        if (c.kind === 'supplier_notice') btns.push(['express', 'Купить экспресс (до 90 ед.)'], ['ignore', 'Игнорировать как блеф'], ['whatif', 'Просчитать WhatIf']);
+        if (c.kind === 'directive_trap') btns.push(['block', 'Заблокировать инъекцию'], ['ignore', 'Пропустить без действий']);
+        if (c.auditable) btns.push(['audit', 'Отправить ревизору (-1 квота)']);
+        return `<div class="${cls}">
+          <div class="doc-meta"><span class="badge ${c.kind === 'directive_trap' ? 'danger' : (c.substantive ? 'warn' : '')}">${esc(c.kind)}</span>
+            <span>${esc(c.doc_id)}</span> · <span>${esc(c.sender)}</span> · <span>${esc(c.channel)}</span></div>
+          <div class="doc-subject">${esc(c.subject)}</div>
+          <div class="doc-body">${esc(c.body)}</div>
+          ${dossier}
+          <div class="decision-row">
+            ${btns.map(([code, label]) => `<button type="button" data-doc="${esc(c.doc_id)}" data-choice="${code}" class="${chosen === code ? 'chosen' : ''}">${esc(label)}</button>`).join('')}
+          </div>
+        </div>`;
+      }).join('');
+    }
+
+    const contractsHtml = obs.active_contracts.length
+      ? `<table class="data-table"><thead><tr><th>Договор</th><th>Клиент</th><th class="num">Остаток</th><th class="num">К дню</th><th class="num">Цена</th><th class="num">Штраф/ед.</th></tr></thead><tbody>` +
+        obs.active_contracts.map(c => `<tr><td>${esc(c.contract_id)}</td><td>${esc(c.client)}</td><td class="num">${c.qty - c.delivered} / ${c.qty}</td><td class="num">${c.due_day}</td><td class="num">${fmt(c.unit_price)} ₽</td><td class="num">${fmt(c.penalty_per_unit)} ₽</td></tr>`).join('') +
+        `</tbody></table>`
+      : `<p style="color:var(--muted);margin:0 0 8px">Нет открытых обязательств по контрактам.</p>`;
+    const incomingHtml = obs.incoming.length
+      ? `<div style="margin-top:8px;font-size:12px;color:var(--muted)">Партии в пути: ` +
+        obs.incoming.map(lot => `<code>${esc(lot.supplier_id)}: ${lot.qty} ед. → день ${lot.eta_day}</code>`).join(' · ') + `</div>`
+      : `<div style="margin-top:8px;font-size:12px;color:var(--muted)">Партий сырья в пути сейчас нет.</div>`;
+    el('hitl-obligations').innerHTML = contractsHtml + incomingHtml;
+
+    drawLineChart('hitl-chart', [{ color: '#1f8a4c', points: s.series.map(p => ({ x: p.day, y: p.cash })) }], 600, 220);
+  }
+
+  async function refreshWhatIf(docId) {
+    if (!state.session) return;
+    const w = await api('/api/whatif', { session_id: state.session.session_id, doc_id: docId || null });
+    el('whatif-box').innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+        <span class="badge ${w.recommend_audit ? 'warn' : ''}">EVPI = ${fmt(w.evpi)} ₽</span>
+        <span style="font-size:12px;font-weight:600">${esc(w.recommendation)}</span>
+      </div>
+      <table class="data-table">
+        <thead><tr><th>План кандидата</th><th class="num">Если сбой реален</th><th class="num">Если блеф</th><th class="num">Ожидание</th><th class="num">Худший</th></tr></thead>
+        <tbody>
+          ${w.rows.map(r => `<tr ${r.plan === w.best_plan ? 'style="background:#e8efe5;font-weight:600"' : ''}>
+            <td>${esc(r.plan)}</td><td class="num">${fmt(r.real)} ₽</td><td class="num">${fmt(r.bluff)} ₽</td>
+            <td class="num">${fmt(r.expected)} ₽</td><td class="num">${fmt(r.worst)} ₽</td></tr>`).join('')}
+        </tbody>
+      </table>
+      <p style="font-size:12px;color:var(--muted);margin:8px 0 0">${esc(w.note)}</p>
+    `;
+  }
+
+  async function startHitl() {
+    const scenarioId = el('hitl-scenario').value;
+    state.decisions = {};
+    state.session = await api('/api/session/start', { scenario_id: scenarioId });
+    renderHitl();
+    const notice = state.session.cards.find(c => c.kind === 'supplier_notice');
+    await refreshWhatIf(notice ? notice.doc_id : null);
+  }
+
+  async function stepHitl(mode) {
+    if (!state.session) return;
+    const decisions = Object.entries(state.decisions).map(([doc_id, choice]) => ({ doc_id, choice }));
+    state.session = await api('/api/session/step', {
+      session_id: state.session.session_id,
+      mode,
+      produce: Number(el('inp-produce').value || 0),
+      retail_price: Number(el('inp-price').value || 195),
+      order_supplier: el('inp-supplier').value,
+      order_qty: Number(el('inp-order-qty').value || 0),
+      decisions,
+    });
+    state.decisions = {};
+    renderHitl();
+    const notice = state.session.cards.find(c => c.kind === 'supplier_notice');
+    await refreshWhatIf(notice ? notice.doc_id : null);
+  }
+
+  function renderTraceDays() {
+    const r = state.traceData;
+    if (!r) return;
+    const flt = el('trace-filter').value;
+    const rows = r.days.filter(d => {
+      if (flt === 'all') return true;
+      const types = d.events.map(e => e.type).join(' ');
+      if (flt === 'injection') return types.includes('injection') || d.policy_flags.length > 0;
+      if (flt === 'contract') return types.includes('contract');
+      if (flt === 'audit') return types.includes('audit');
+      if (flt === 'prefilter') return types.includes('prefilter') || types.includes('extracted') || types.includes('noise_to_model');
+      return true;
+    });
+    el('trace-days').innerHTML = `<table class="data-table"><thead><tr><th>День</th><th class="num">Касса</th><th class="num">Сырьё / Готовое</th><th class="num">Квоты (LLM / Аудит)</th><th>События воронки и безопасности</th></tr></thead><tbody>` +
+      rows.map(d => {
+        const badges = d.events.map(ev => {
+          const cls = ev.type.includes('missed') || ev.type.includes('breached') || ev.type === 'noise_to_model' ? 'danger'
+            : (ev.type.includes('blocked') || ev.type.includes('audit') ? 'warn' : '');
+          const detail = ev.doc_id ? `${ev.type}: ${ev.doc_id}` : (ev.supplier_id ? `заказ ${ev.supplier_id}×${ev.qty}` : ev.type);
+          return `<span class="badge ${cls}" style="margin:2px">${esc(detail)}</span>`;
+        }).join(' ') || '<span style="color:var(--muted)">Штатный операционный день</span>';
+        return `<tr><td class="num">${d.day}</td><td class="num">${fmt(d.cash)} ₽</td><td class="num">${d.raw} / ${d.finished}</td><td class="num">${d.calls_left} / ${d.audits_left}</td><td>${badges}</td></tr>`;
+      }).join('') + `</tbody></table>`;
+  }
+
+  async function runTrace() {
+    const r = await api('/api/run', {
+      scenario_id: el('trace-scenario').value,
+      agent: el('trace-agent').value,
+      mode: 'scripted',
+    });
+    state.traceData = r;
+    el('trace-kpis').innerHTML = [
+      ['Балл стенда', r.stand_score.total.toFixed(2), `Чистая прибыль: ${fmt(r.net_profit)} ₽`],
+      ['Контракты', `${r.contracts_completed} выполнено`, `Срывов SLA: ${r.contracts_breached} (${fmt(r.sla_penalties_total)} ₽)`],
+      ['Вызовы LLM', `${r.model_calls} из 12`, `Остаток: ${r.calls_left}`],
+      ['Запросы ревизора', `${r.audits_used} из 4`, `Агент: ${r.agent}`],
+    ].map(([k, v, sub]) => `<div class="kpi"><div class="kpi-label">${esc(k)}</div><div class="kpi-value">${esc(v)}</div><div class="kpi-sub">${esc(sub)}</div></div>`).join('');
+    drawLineChart('trace-chart', [{ color: '#1f8a4c', points: r.series.map(p => ({ x: p.day, y: p.cash })) }], 900, 220);
+    renderTraceDays();
+  }
+
+  async function runCompare() {
+    const c = await api('/api/compare', {
+      scenario_id: el('ab-scenario').value,
+      agent_a: el('ab-agent-a').value,
+      agent_b: el('ab-agent-b').value,
+      mode: 'scripted',
+    });
+    el('ab-kpis').innerHTML = [
+      [`Агент A · ${c.a.name}`, `${(c.a.net_profit / 1000).toFixed(2)} балла`, `Прибыль: ${fmt(c.a.net_profit)} ₽`],
+      [`Агент B · ${c.b.name}`, `${(c.b.net_profit / 1000).toFixed(2)} балла`, `Прибыль: ${fmt(c.b.net_profit)} ₽`],
+      ['Разница A − B', `${c.delta_profit >= 0 ? '+' : ''}${fmt(c.delta_profit)} ₽`, `Δ срывов SLA: ${c.delta_breaches}`],
+      ['Расход квот A vs B', `LLM ${c.a.model_calls} vs ${c.b.model_calls}`, `Ревизор ${c.a.audits_used} vs ${c.b.audits_used}`],
+    ].map(([k, v, sub]) => `<div class="kpi"><div class="kpi-label">${esc(k)}</div><div class="kpi-value">${esc(v)}</div><div class="kpi-sub">${esc(sub)}</div></div>`).join('');
+    drawLineChart('ab-chart', [
+      { color: '#1f8a4c', points: c.a.series.map(p => ({ x: p.day, y: p.cash })) },
+      { color: '#4a4e57', dash: true, points: c.b.series.map(p => ({ x: p.day, y: p.cash })) },
+    ], 640, 220);
+    const top = [...c.divergence].sort((x, y) => Math.abs(y.delta) - Math.abs(x.delta)).slice(0, 8).sort((x, y) => x.day - y.day);
+    el('ab-table').innerHTML = `<table class="data-table"><thead><tr><th>День</th><th class="num">Касса A</th><th class="num">Касса B</th><th class="num">A − B</th></tr></thead><tbody>` +
+      top.map(r => `<tr><td class="num">${r.day}</td><td class="num">${fmt(r.cash_a)} ₽</td><td class="num">${fmt(r.cash_b)} ₽</td><td class="num">${r.delta >= 0 ? '+' : ''}${fmt(r.delta)} ₽</td></tr>`).join('') +
+      `</tbody></table>`;
+  }
+
+  document.querySelectorAll('nav.tabs button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('nav.tabs button').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const tab = btn.dataset.tab;
+      ['hitl', 'trace', 'ab'].forEach(t => { el('panel-' + t).hidden = (t !== tab); });
+      if (tab === 'trace' && !state.traceData) runTrace().catch(e => showError(e.message));
+      if (tab === 'ab' && !el('ab-table').innerHTML) runCompare().catch(e => showError(e.message));
+    });
+  });
+
+  el('hitl-inbox').addEventListener('click', ev => {
+    const btn = ev.target.closest('button[data-doc]');
+    if (!btn) return;
+    const docId = btn.dataset.doc;
+    const choice = btn.dataset.choice;
+    if (choice === 'whatif') {
+      refreshWhatIf(docId).catch(e => showError(e.message));
+      return;
+    }
+    state.decisions[docId] = (state.decisions[docId] === choice) ? '' : choice;
+    renderHitl();
+  });
+
+  el('hitl-scenario').addEventListener('change', () => startHitl().catch(e => showError(e.message)));
+  el('btn-hitl-reset').addEventListener('click', () => stepHitl('reset').catch(e => showError(e.message)));
+  el('btn-step-once').addEventListener('click', () => stepHitl('once').catch(e => showError(e.message)));
+  el('btn-step-dispute').addEventListener('click', () => stepHitl('until_dispute').catch(e => showError(e.message)));
+  el('btn-run-trace').addEventListener('click', () => runTrace().catch(e => showError(e.message)));
+  el('trace-filter').addEventListener('change', renderTraceDays);
+  el('btn-run-ab').addEventListener('click', () => runCompare().catch(e => showError(e.message)));
+
+  (async () => {
+    try {
+      const meta = await api('/api/scenarios');
+      state.scenarios = meta.scenarios || [];
+      state.policies = meta.policies || [];
+      const opts = state.scenarios.map(s => `<option value="${esc(s.scenario_id)}">${esc(s.scenario_id)} · ${esc(s.title)}</option>`).join('');
+      ['hitl-scenario', 'trace-scenario', 'ab-scenario'].forEach(id => { el(id).innerHTML = opts; });
+      el('policy-list').innerHTML = state.policies.map(p => `<option value="${esc(p)}">`).join('');
+      if (!state.policies.includes('reference_agent')) {
+        el('trace-agent').value = 'cautious';
+        el('ab-agent-a').value = 'cautious';
+        el('ab-agent-b').value = 'baseline';
+      }
+      await startHitl();
+    } catch (e) {
+      showError(e.message);
+    }
+  })();
+})();
+</script>
+</body>
+</html>
